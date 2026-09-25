@@ -11,7 +11,8 @@ This repository contains the R scripts used for the analyses and figure generati
 Rhinella-spinulosa-skin-microbiota/
 ├── README.md
 ├── Rhinella_spinulosa_microbiota_pipeline_v2.R
-├── Rhinella_spinulosa_microbiota_figures_v2.R
+└── Rhinella_spinulosa_microbiota_figures_v2.R
+```
 
 ## Scripts
 
