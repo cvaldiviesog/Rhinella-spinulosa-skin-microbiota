@@ -26,7 +26,7 @@
 # ----------------------------
 # Rhinella2_feature-table.biom
 # sample_data.txt
-# taxonomy.tsv
+# Rhinella2_taxonomy.tsv
 # representative-sequences_FAR.fasta
 # representative-sequences_Longo.fasta
 # data_feature-table2.biom
