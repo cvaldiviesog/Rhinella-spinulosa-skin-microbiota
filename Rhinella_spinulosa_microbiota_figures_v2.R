@@ -1234,1289 +1234,600 @@ write.table(
 
 
 
-# ---- Figure 3: Conceptual model ---------------------------------------------
-
-###Figura conceptual
-## Stage 1 - Canvas
-############################################################
+# ---- Figure 3: Conceptual synthesis ------------------------------------------
+# Integrates host-associated filtering, group-specific network organization,
+# and sequence-level correspondence across independent sampling groups.
 
 library(ggplot2)
 library(grid)
+library(dplyr)
 
-theme_set(
-  theme_void(base_size = 15)
+theme_set(theme_void(base_size = 15))
+
+# ---------------------------------------------------------------------------
+# 1. Visual settings
+# ---------------------------------------------------------------------------
+
+COLORS <- list(
+  background = "grey90",
+  node_border = "grey45",
+  edges = "grey65",
+  highlighted = "#D55E00",
+  text = "grey15"
 )
 
-############################################################
-## Canvas
-############################################################
+# Sampling-group positions
+group_x <- c(T = 1.45, J = 2.75, A = 4.05)
 
-panelD <- ggplot() +
-  
+# ---------------------------------------------------------------------------
+# 2. Canvas
+# ---------------------------------------------------------------------------
+
+fig3 <- ggplot() +
   coord_cartesian(
-    xlim = c(0.3,3.55),
-    ylim = c(-2.5,10),
+    xlim = c(0.25, 4.65),
+    ylim = c(-0.60, 8.15),
     clip = "off"
   ) +
-  
-  ############################################################
-## Development arrow
-############################################################
-
-geom_segment(
-  
-  aes(
-    x = 1,
-    xend = 3,
-    y = 9.45,
-    yend = 9.45
-  ),
-  
-  linewidth = 0.7,
-  
-  arrow = arrow(
-    length = unit(0.22,"cm"),
-    type = "closed"
+  theme(
+    plot.margin = margin(8, 10, 8, 45)
   )
-  
-) +
-  
-  ############################################################
-## Development title
-############################################################
 
-annotate(
-  
-  "text",
-  
-  x = 2,
-  
-  y = 9.88,
-  
-  label = "Development",
-  
-  fontface = "bold",
-  
-  size = 6.2
-  
-) +
-  
-  ############################################################
-## Developmental stages
-############################################################
+# ---------------------------------------------------------------------------
+# 3. Section labels
+# ---------------------------------------------------------------------------
 
-annotate(
-  "text",
-  x = 1,
-  y = 8.75,
-  label = "Tadpoles",
-  fontface = "bold",
-  size = 4.8
-) +
+fig3 <- fig3 +
   
   annotate(
     "text",
-    x = 2,
-    y = 8.75,
-    label = "Juveniles",
-    fontface = "bold",
-    size = 4.8
-  ) +
-  
-  annotate(
-    "text",
-    x = 3,
-    y = 8.75,
-    label = "Adults",
-    fontface = "bold",
-    size = 4.8
-  ) +
-  
-  ############################################################
-## Left labels
-############################################################
-
-annotate(
-  
-  "text",
-  
-  x = 0.48,
-  
-  y = 6.5,
-  
-  label = "Host\nfiltering",
-  
-  hjust = 1,
-  
-  fontface = "bold",
-  
-  size = 4
-  
-) +
-  
-  annotate(
-    
-    "text",
-    
-    x = 0.48,
-    
-    y = 4.0,
-    
-    label = "Network\nreorganization",
-    
+    x = 0.48, y = 7.05,
+    label = "Host-associated\nfiltering",
     hjust = 1,
-    
     fontface = "bold",
-    
     size = 4
-    
   ) +
   
   annotate(
-    
     "text",
-    
-    x = 0.48,
-    
-    y = 1.0,
-    
-    label = "Ontogenetic\npersistence",
-    
+    x = 0.48, y = 4.75,
+    label = "Group-specific\nnetwork organization",
     hjust = 1,
-    
     fontface = "bold",
-    
     size = 4
-    
-  )+
-  
-  
-  
-  ############################################################
-## Theme
-############################################################
-
-theme(
-  
-  plot.margin =
-    margin(
-      15,
-      30,
-      15,
-      65
-    )
-  
-)
-
-############################################################
-## Community cloud
-############################################################
-
-make_cloud <- function(center_x,
-                       center_y,
-                       n,
-                       radius_x,
-                       radius_y){
-  
-  theta <- runif(n,0,2*pi)
-  
-  r <- sqrt(runif(n))
-  
-  data.frame(
-    
-    x = center_x + radius_x*r*cos(theta),
-    
-    y = center_y + radius_y*r*sin(theta),
-    
-    size = runif(
-      n,
-      2.4,
-      4.2
-    )
-    
-  )
-  
-}
-
-############################################################
-## Persistent genera
-############################################################
-
-persistent_genera <- c(
-  
-  "Pseudomonas",
-  "Nocardioides",
-  "Flavobacterium",
-  "Chryseobacterium",
-  "Hydrogenophaga"
-  
-)
-
-persistent_paths <- data.frame(
-  
-  Genus = persistent_genera,
-  
-  Larvae_x = c(
-    0.92,
-    1.06,
-    0.98,
-    1.14,
-    1.20
-  ),
-  
-  Larvae_y = c(
-    6.25,
-    6.68,
-    6.08,
-    6.45,
-    6.86
-  ),
-  
-  Juvenile_x = c(
-    1.93,
-    2.07,
-    1.98,
-    2.12,
-    2.17
-  ),
-  
-  Juvenile_y = c(
-    6.30,
-    6.60,
-    6.15,
-    6.78,
-    6.48
-  ),
-  
-  Adult_x = c(
-    2.90,
-    3.05,
-    2.98,
-    3.10,
-    3.16
-  ),
-  
-  Adult_y = c(
-    6.32,
-    6.55,
-    6.20,
-    6.70,
-    6.42
-  )
-  
-)
-
-
-############################################################
-## Offset trajectories
-############################################################
-
-offset <- 0.035
-
-persistent_paths$Larvae_x_out  <- persistent_paths$Larvae_x + offset
-persistent_paths$Juvenile_x_in <- persistent_paths$Juvenile_x - offset
-
-persistent_paths$Juvenile_x_out <- persistent_paths$Juvenile_x + offset
-persistent_paths$Adult_x_in     <- persistent_paths$Adult_x - offset
-
-
-
-############################################################
-## Community
-############################################################
-
-set.seed(123)
-
-larvae <- make_cloud(
-  1,
-  6.5,
-  38,
-  0.27,
-  0.48
-)
-
-juvenile <- make_cloud(
-  2,
-  6.5,
-  20,
-  0.22,
-  0.34
-)
-
-adult <- make_cloud(
-  3,
-  6.5,
-  10,
-  0.15,
-  0.18
-)
-
-panelD <- panelD +
-  
-  geom_point(
-    
-    data=larvae,
-    
-    aes(
-      x,
-      y,
-      size=size
-    ),
-    
-    shape=21,
-    
-    fill="grey90",
-    
-    colour="grey45",
-    
-    stroke=.30,
-    
-    show.legend=FALSE
-    
-  )+
-  
-  geom_point(
-    
-    data=juvenile,
-    
-    aes(
-      x,
-      y,
-      size=size
-    ),
-    
-    shape=21,
-    
-    fill="grey90",
-    
-    colour="grey45",
-    
-    stroke=.30,
-    
-    show.legend=FALSE
-    
-  )+
-  
-  geom_point(
-    
-    data=adult,
-    
-    aes(
-      x,
-      y,
-      size=size
-    ),
-    
-    shape=21,
-    
-    fill="grey90",
-    
-    colour="grey45",
-    
-    stroke=.30,
-    
-    show.legend=FALSE
-    
-  )
-
-############################################################
-## Community filtering trajectories
-############################################################
-
-panelD <- panelD +
-  
-  geom_curve(
-    
-    data = persistent_paths,
-    
-    aes(
-      x = Larvae_x_out,
-      y = Larvae_y,
-      xend = Juvenile_x_in,
-      yend = Juvenile_y
-    ),
-    
-    curvature = 0.10,
-    
-    linewidth = 0.25,
-    
-    linetype = "22",
-    
-    colour = "#D55E00",
-    
-    alpha = 0.70
-    
   ) +
   
-  geom_curve(
-    
-    data = persistent_paths,
-    
-    aes(
-      x = Juvenile_x_out,
-      y = Juvenile_y,
-      xend = Adult_x_in,
-      yend = Adult_y
-    ),
-    
-    curvature = 0.10,
-    
-    linewidth = 0.25,
-    
-    linetype = "22",
-    
-    colour = "#D55E00",
-    
-    alpha = 0.70
-    
+  annotate(
+    "text",
+    x = 0.48, y = 0.90,
+    label = "Sequence-level\ncorrespondence",
+    hjust = 1,
+    fontface = "bold",
+    size = 4
   )
 
-############################################################
-## Persistent nodes (Community filtering)
-############################################################
+# ---------------------------------------------------------------------------
+# 4. Host-associated filtering
+# ---------------------------------------------------------------------------
+# Conceptual representation of the sampled aquatic microbial pool
+# and the structured subset detected on tadpole skin.
+#
+# Orange nodes represent host-associated bacteria.
+# Grey nodes represent other bacterial members.
 
-persistent_cloud <- data.frame(
-  
-  x = c(
-    
-    ## Cinco nodos principales
-    persistent_paths$Larvae_x,
-    
-    ## Tres duplicados
-    persistent_paths$Larvae_x[c(1,3,5)] + c(-0.035,0.040,-0.030),
-    
-    ## Juveniles
-    persistent_paths$Juvenile_x,
-    
-    ## Adultos
-    persistent_paths$Adult_x
-    
-  ),
-  
-  y = c(
-    
-    persistent_paths$Larvae_y,
-    
-    persistent_paths$Larvae_y[c(1,3,5)] + c(0.08,-0.07,0.06),
-    
-    persistent_paths$Juvenile_y,
-    
-    persistent_paths$Adult_y
-    
-  ),
-  
-  Stage = c(
-    
-    rep("Larvae",8),
-    
-    rep("Juveniles",5),
-    
-    rep("Adults",5)
-    
-  ),
-  
-  size = c(
-    
-    ## Larvas
-    4.2,4.2,4.2,4.2,4.2,
-    3.6,3.5,3.5,
-    
-    ## Juveniles
-    rep(4.2,5),
-    
-    ## Adultos
-    rep(4.2,5)
-    
-  )
-  
+water_nodes <- data.frame(
+  x = c(1.05, 1.18, 1.32, 1.43, 1.12, 1.36, 1.48, 1.22),
+  y = c(7.15, 7.48, 7.22, 7.55, 6.95, 6.88, 7.05, 7.65)
 )
 
-panelD <- panelD +
+skin_nodes <- data.frame(
+  x = c(2.05, 2.18, 2.31, 2.08, 2.25, 2.38, 2.17),
+  y = c(7.20, 7.48, 7.12, 6.92, 6.88, 7.35, 7.65),
+  category = c(
+    "Other", "Host-associated", "Other",
+    "Host-associated", "Host-associated",
+    "Other", "Host-associated"
+  )
+)
+
+water_nodes$y <- water_nodes$y - 0.20
+skin_nodes$y <- skin_nodes$y - 0.20
+
+fig3 <- fig3 +
+  
+  annotate(
+    "text",
+    x = 1.28, y = 7.75,
+    label = "Aquatic microbial pool",
+    fontface = "bold",
+    size = 3.6
+  ) +
+  
+  annotate(
+    "text",
+    x = 2.22, y = 7.75,
+    label = "Tadpole skin microbiota",
+    fontface = "bold",
+    size = 3.6
+  ) +
   
   geom_point(
-    
-    data = persistent_cloud,
-    
-    aes(
-      x,
-      y,
-      size = size
-    ),
-    
+    data = water_nodes,
+    aes(x, y),
     shape = 21,
-    
-    fill = "#D55E00",
-    
-    colour = "black",
-    
-    stroke = 1.3,
-    
-    show.legend = FALSE
-    
-  )+
+    size = 4,
+    fill = COLORS$background,
+    colour = COLORS$node_border,
+    stroke = 0.35
+  ) +
   
-  scale_size_identity()
-
-##########################################
-
-         #Networks modularity
-###################################
-draw_network <- function(nodes,
-                         edges,
-                         persistent){
+  geom_point(
+    data = skin_nodes,
+    aes(x, y, fill = category),
+    shape = 21,
+    size = 4,
+    colour = COLORS$node_border,
+    stroke = 0.35
+  ) +
   
-  list(
-    
-    geom_segment(
-      data=edges,
-      aes(x=x,
-          y=y,
-          xend=xend,
-          yend=yend),
-      linewidth=.45,
-      colour="grey55"
+  scale_fill_manual(
+    values = c(
+      "Other" = COLORS$background,
+      "Host-associated" = COLORS$highlighted
     ),
-    
-    geom_point(
-      
-      data=nodes,
-      
-      aes(x,y,size=size),
-      
-      shape=21,
-      
-      fill="grey88",
-      
-      colour="grey35",
-      
-      stroke=.35
-      
-    ),
-    
-    geom_point(
-      
-      data=subset(nodes,persistent),
-      
-      aes(x,y),
-      
-      shape=21,
-      
-      size=4,
-      
-      fill="#D55E00",
-      
-      colour="black",
-      
-      stroke=1.3
-      
+    guide = "none"
+  ) +
+  
+  annotate(
+    "segment",
+    x = 1.58, xend = 1.88,
+    y = 7.05, yend = 7.05,
+    linewidth = 0.6,
+    colour = COLORS$text,
+    arrow = arrow(
+      length = unit(0.16, "cm"),
+      type = "closed"
     )
-    
-  )
+  ) +
   
-}
+  annotate(
+    "text",
+    x = 1.73, y = 7.45,
+    label = "Filtering",
+    size = 3
+  )
 
-############################################################
-## Helper
-############################################################
+# ---------------------------------------------------------------------------
+# 5. Independent network diagrams
+# ---------------------------------------------------------------------------
 
-make_nodes <- function(x0,y0,coords){
+make_nodes <- function(x0, y0, coords) {
   
   data.frame(
-    
     id = seq_len(nrow(coords)),
-    
-    x = coords[,1] + x0,
-    
-    y = coords[,2] + y0
-    
+    x = coords[, 1] + x0,
+    y = coords[, 2] + y0
   )
-  
 }
 
-############################################################
-## LARVAE
-############################################################
-
-coords_larvae <- matrix(
-  
+# Tadpole network
+coords_T <- matrix(
   c(
-    
     -0.20,  0.25,
     -0.05,  0.32,
     0.10,  0.28,
     0.24,  0.20,
-    
     -0.18,  0.02,
     -0.02,  0.08,
     0.14,  0.02,
     0.28,  0.08,
-    
-    -0.15,-0.20,
-    0.00,-0.28,
-    0.18,-0.22,
-    0.32,-0.12
-    
+    -0.15, -0.20,
+    0.00, -0.28,
+    0.18, -0.22,
+    0.32, -0.12
   ),
-  
-  ncol=2,
-  byrow=TRUE
-  
+  ncol = 2,
+  byrow = TRUE
 )
 
-nodes_larvae <-
-  make_nodes(
-    1,
-    4,
-    coords_larvae
-  )
-
-edges_larvae <- data.frame(
-  
+edges_T <- data.frame(
   from = c(
-    1,2,3,
-    5,6,7,
-    9,10,
+    1, 2, 3, 5, 6, 7, 9, 10,
+    1, 2, 3, 4, 5, 6, 7, 8,
+    2, 3, 6, 7, 5, 6, 7, 8
+  ),
+  to = c(
+    2, 3, 4, 6, 7, 8, 10, 11,
+    5, 6, 7, 8, 9, 10, 11, 12,
+    6, 7, 10, 11, 9, 10, 11, 12
+  )
+)
+
+# Juvenile network
+coords_J <- matrix(
+  c(
+    -0.18,  0.22,
+    -0.04,  0.28,
+    0.10,  0.22,
+    -0.18, -0.02,
+    -0.02,  0.04,
+    0.12, -0.02,
+    0.24,  0.20,
+    0.30,  0.02,
+    -0.02, -0.26,
+    0.14, -0.22,
+    0.30, -0.18,
+    0.44, -0.02
+  ),
+  ncol = 2,
+  byrow = TRUE
+)
+
+edges_J <- data.frame(
+  from = c(
+    1, 2, 2, 1, 2, 3,
+    4, 5, 3, 7, 5, 9, 8, 10
+  ),
+  to = c(
+    2, 3, 5, 4, 5, 6,
+    5, 6, 7, 8, 9, 10, 12, 11
+  )
+)
+
+# Adult network
+# One main connected component with branching connections,
+# plus one small disconnected component.
+
+coords_A <- matrix(
+  c(
+    # Main connected component
+    -0.48,  0.22,
+    -0.30,  0.30,
+    -0.12,  0.22,
+    0.06,  0.30,
+    0.24,  0.20,
+    0.42,  0.28,
+    0.55,  0.12,
     
-    1,2,3,4,
-    5,6,7,8,
+    -0.18, -0.02,
+    0.02, -0.10,
+    0.22, -0.06,
     
-    2,3,
-    6,7,
-    5,6,7,8
+    # Small disconnected component
+    -0.42, -0.20,
+    -0.25, -0.28
+  ),
+  ncol = 2,
+  byrow = TRUE
+)
+
+edges_A <- data.frame(
+  from = c(
+    # Main chain
+    1, 2, 3, 4, 5, 6,
+    
+    # Branch
+    3, 8, 9,
+    
+    # Cross-connections
+    5, 4, 6
   ),
   
   to = c(
-    2,3,4,
-    6,7,8,
-    10,11,
+    # Main chain
+    2, 3, 4, 5, 6, 7,
     
-    5,6,7,8,
-    9,10,11,12,
+    # Branch
+    8, 9, 10,
     
-    6,7,
-    10,11,
-    9,10,11,12
+    # Cross-connections
+    9, 9, 10
   )
-  
 )
 
-############################################################
-## JUVENILES
-############################################################
+# Generate network node coordinates
+nodes_T <- make_nodes(group_x["T"], 4.55, coords_T)
+nodes_J <- make_nodes(group_x["J"], 4.55, coords_J)
+nodes_A <- make_nodes(group_x["A"], 4.55, coords_A)
 
-coords_juvenile <- matrix(
+# ---------------------------------------------------------------------------
+# 6. Network drawing function
+# ---------------------------------------------------------------------------
+
+draw_network <- function(nodes, edges) {
   
-  c(
-    
-    -0.18,0.22,
-    -0.04,0.28,
-    0.10,0.22,
-    
-    -0.18,-0.02,
-    -0.02,0.04,
-    0.12,-0.02,
-    
-    0.24,0.20,
-    0.30,0.02,
-    
-    -0.02,-0.26,
-    0.14,-0.22,
-    
-    0.30,-0.18,
-    0.44,-0.02
-    
-  ),
-  
-  ncol=2,
-  byrow=TRUE
-  
-)
-
-nodes_juvenile <-
-  make_nodes(
-    2,
-    4,
-    coords_juvenile
-  )
-
-edges_juvenile <- data.frame(
-  
-  from=c(
-    
-    1,2,
-    2,3,
-    
-    1,4,
-    2,5,
-    3,6,
-    
-    4,5,
-    5,6,
-    
-    3,7,
-    7,8,
-    
-    5,9,
-    9,10,
-    
-    8,12,
-    10,11
-    
-  ),
-  
-  to=c(
-    
-    2,3,
-    
-    4,5,6,
-    
-    5,6,
-    
-    7,8,
-    
-    9,10,
-    
-    12,11
-    
-  )
-  
-)
-
-############################################################
-## ADULTS
-############################################################
-
-coords_adult <- matrix(
-  
-  c(
-    
-    # Componente 1
-    -0.35, 0.28,
-    -0.20, 0.38,
-    
-    # Componente 2
-    0.10, 0.24,
-    0.28, 0.34,
-    
-    # Componente 3
-    -0.32,-0.18,
-    -0.15,-0.30,
-    
-    # Componente 4
-    0.12,-0.12,
-    0.30,-0.24,
-    
-    # Componente 5
-    -0.02, 0.05,
-    0.16,-0.02,
-    
-    # Componente 6
-    0.52, 0.18,
-    0.68, 0.02
-    
-  ),
-  
-  ncol = 2,
-  byrow = TRUE
-  
-)
-
-nodes_adult <-
-  make_nodes(
-    3,
-    4,
-    coords_adult
-  )
-
-edges_adult <- data.frame(
-  
-  from=c(
-    
-    1,3,5,7,9,11
-    
-  ),
-  
-  to=c(
-    
-    2,4,6,8,10,12
-    
-  )
-  
-)
-
-###########################
-      #persistentes
-##########################
-persistent_ids_larvae <- c(
-  2,3,
-  6,7,
-  9,10,
-  11,
-  12
-)
-
-persistent_ids_juvenile <- c(
-  2,5,7,8,10
-)
-
-persistent_ids_adult <- c(
-  1,4,6,9,11
-)
-
-nodes_larvae$Persistent <-
-  nodes_larvae$id %in%
-  persistent_ids_larvae
-
-nodes_juvenile$Persistent <-
-  nodes_juvenile$id %in%
-  persistent_ids_juvenile
-
-nodes_adult$Persistent <-
-  nodes_adult$id %in%
-  persistent_ids_adult
-
-###########################################################
-## Node sizes
-###########################################################
-
-# Todos parten con el mismo tamaño
-nodes_larvae$size <- 3.8
-nodes_juvenile$size <- 3.8
-nodes_adult$size <- 3.8
-
-# Persistentes (Larvae)
-nodes_larvae$size[nodes_larvae$Persistent] <-
-  
-  c(
-    
-    4.9,
-    4.6,
-    
-    4.8,
-    4.5,
-    
-    4.7,
-    4.4,
-    
-    4.6,
-    
-    4.5
-    
-  )
-# Persistentes (Juveniles)
-nodes_juvenile$size[nodes_juvenile$Persistent] <-
-  c(4.5,4.3,4.1,3.9,3.8)
-
-# Persistentes (Adults)
-nodes_adult$size[nodes_adult$Persistent] <-
-  c(3.6,3.5,3.3,3.2,3.1)
-
-
-draw_network <- function(nodes,
-                         edges){
+  edge_coordinates <- edges %>%
+    left_join(
+      nodes %>% rename(from = id, x = x, y = y),
+      by = "from"
+    ) %>%
+    left_join(
+      nodes %>% rename(to = id, xend = x, yend = y),
+      by = "to"
+    )
   
   list(
     
     geom_segment(
-      
-      data=merge(
-        edges,
-        nodes,
-        by.x="from",
-        by.y="id"
-      ) |>
-        merge(
-          nodes,
-          by.x="to",
-          by.y="id",
-          suffixes=c("","2")
-        ),
-      
-      aes(
-        
-        x=x,
-        
-        y=y,
-        
-        xend=x2,
-        
-        yend=y2
-        
-      ),
-      
-      linewidth=.45,
-      
-      colour="grey60"
-      
+      data = edge_coordinates,
+      aes(x = x, y = y, xend = xend, yend = yend),
+      linewidth = 0.45,
+      colour = COLORS$edges
     ),
     
     geom_point(
-      
       data = nodes,
-      
-      aes(
-        x,
-        y,
-        size = size
-      ),
-      
+      aes(x, y),
       shape = 21,
-      
-      fill = "grey90",
-      
-      colour = "grey55",
-      
-      stroke = .30
-      
-    ),
-    
-    geom_point(
-      
-      data = subset(nodes, Persistent),
-      
-      aes(
-        x,
-        y,
-        size = size
-      ),
-      
-      shape = 21,
-      
-      fill = "#D55E00",
-      
-      colour = "black",
-      
-      stroke = 1.0
-      
-    ),
-    scale_size_identity()
+      size = 3.8,
+      fill = COLORS$background,
+      colour = COLORS$node_border,
+      stroke = 0.35
+    )
   )
-  
 }
 
-nodes_larvae$size <- 3.8
-nodes_larvae$size[nodes_larvae$Persistent] <- c(5.0,4.8,4.7,4.6,4.5)
-
-nodes_juvenile$size <- 3.8
-nodes_juvenile$size[nodes_juvenile$Persistent] <- c(4.5,4.3,4.1,3.9,3.8)
-
-nodes_adult$size <- 3.8
-nodes_adult$size[nodes_adult$Persistent] <- c(3.6,3.4,3.3,3.2,3.1)
-
-panelD <- panelD +
+fig3 <- fig3 +
   
-  draw_network(
-    nodes_larvae,
-    edges_larvae
+  annotate(
+    "text",
+    x = group_x,
+    y = 5.45,
+    label = c("T", "J", "A"),
+    fontface = "bold",
+    size = 5
   ) +
   
-  draw_network(
-    nodes_juvenile,
-    edges_juvenile
-  ) +
-  
-  draw_network(
-    nodes_adult,
-    edges_adult
-  )
+  draw_network(nodes_T, edges_T) +
+  draw_network(nodes_J, edges_J) +
+  draw_network(nodes_A, edges_A)
 
+# ---------------------------------------------------------------------------
+# 7. Sequence-level correspondence
+# ---------------------------------------------------------------------------
+# Examples of observed topological configurations among sequence-equivalent
+# bacterial ASVs detected across sampling groups.
+#
+# Each row represents one sequence-equivalent unit or configuration.
+# Topological status was independently assigned within each group-specific
+# network. Blank positions indicate that the sequence was not detected
+# in the corresponding group.
+#
+# These examples do not represent biological trajectories.
 
-#######################################
+# Group positions
+sequence_group_x <- c(T = 1.45, J = 2.75, A = 4.05)
 
-                #Trayectorias de persistentes
-######################################
-
-persistent_tracks <- data.frame(
+# Observed configurations from Table 2
+sequence_examples <- data.frame(
   
-  Genus = persistent_genera,
-  
-  x1 = c(0.93,1.06,0.99,1.13,1.19),
-  y1 = c(6.26,6.67,6.08,6.47,6.86),
-  
-  x2 = c(1.95,2.05,1.98,2.12,2.18),
-  y2 = c(6.30,6.61,6.12,6.74,6.48),
-  
-  x3 = c(2.90,3.04,2.98,3.10,3.16),
-  y3 = c(6.31,6.55,6.22,6.69,6.42)
-  
-)
-
-larvae_tracks <- subset(
-  nodes_larvae,
-  id %in% c(2,6,9,11,12)
-)
-
-juvenile_persist <- subset(
-  nodes_juvenile,
-  Persistent
-)
-
-adult_persist <- subset(
-  nodes_adult,
-  Persistent
-)
-
-larvae_tracks$Genus <- persistent_genera
-juvenile_persist$Genus <- persistent_genera
-adult_persist$Genus <- persistent_genera
-
-tracks <-
-  
-  larvae_tracks |>
-  
-  merge(
-    
-    juvenile_persist,
-    
-    by="Genus",
-    
-    suffixes=c("_L","_J")
-    
-  ) |>
-  
-  merge(
-    
-    adult_persist,
-    
-    by="Genus"
-    
-  )
-
-offset_net <- 0.035
-
-tracks$xL_out <- tracks$x_L + offset_net
-tracks$xJ_in  <- tracks$x_J - offset_net
-
-tracks$xJ_out <- tracks$x_J + offset_net
-tracks$xA_in  <- tracks$x - offset_net
-
-panelD <-
-  
-  panelD +
-  
-  geom_curve(
-    
-    data=tracks,
-    
-    aes(
-      
-      x=xL_out,
-      
-      y=y_L,
-      
-      xend=xJ_in,
-      
-      yend=y_J
-      
-    ),
-    
-    curvature=0.18,
-    
-    linewidth=0.20,
-    linetype = "dashed",
-    
-    colour="#D55E00",
-    
-    alpha=0.70
-    
-  )+
-  
-  geom_curve(
-    
-    data=tracks,
-    
-    aes(
-      
-      x=xJ_out,
-      
-      y=y_J,
-      
-      xend=xA_in,
-      
-      yend=y
-      
-    ),
-    
-    curvature=0.18,
-    
-    linewidth=0.20,
-    linetype = "dashed",
-    
-    colour="#D55E00",
-    
-    alpha=0.70
-    
-  )
-
-#######Bloque de persistencia ontogenética###################
-traj_draw <- tribble(
-  
-  ~Trajectory,             ~Stage,      ~Role,
-  
-  "Peripheral",            "Tadpole",   "None",
-  "Peripheral",            "Juvenile",  "None",
-  "Peripheral",            "Adult",     "None",
-  
-  "Degree_early",          "Tadpole",   "Degree",
-  "Degree_early",          "Juvenile",  "None",
-  "Degree_early",          "Adult",     "None",
-  
-  "Degree_late",           "Tadpole",   "None",
-  "Degree_late",           "Juvenile",  "None",
-  "Degree_late",           "Adult",     "Degree",
-  
-  "BTW_early",             "Tadpole",   "BTW",
-  "BTW_early",             "Juvenile",  "None",
-  "BTW_early",             "Adult",     "None",
-  
-  "BTW_middle",            "Tadpole",   "None",
-  "BTW_middle",            "Juvenile",  "BTW",
-  "BTW_middle",            "Adult",     "None",
-  
-  "BTW_late",              "Tadpole",   "None",
-  "BTW_late",              "Juvenile",  "None",
-  "BTW_late",              "Adult",     "BTW",
-  
-  "BTW_persistent",        "Tadpole",   "None",
-  "BTW_persistent",        "Juvenile",  "BTW",
-  "BTW_persistent",        "Adult",     "BTW"
-  
-)
-
-traj_draw <-
-  
-  traj_draw %>%
-  
-  mutate(
-    
-    x = case_when(
-      
-      Stage=="Tadpole" ~ 1,
-      
-      Stage=="Juvenile" ~ 2,
-      
-      TRUE ~ 3
-      
-    ),
-    
-    y = case_when(
-      
-      Trajectory=="Peripheral" ~ 0.6,
-      
-      Trajectory=="Degree_early" ~ 0.2,
-      
-      Trajectory=="Degree_late" ~ -0.2,
-      
-      Trajectory=="BTW_early" ~ -0.6,
-      
-      Trajectory=="BTW_middle" ~ -1.0,
-      
-      Trajectory=="BTW_late" ~ -1.4,
-      
-      Trajectory=="BTW_persistent" ~ -1.8,
-      
-      TRUE ~ 7
-      
-    )
-    
-  )
-
-traj_draw <-
-  
-  traj_draw %>%
-  
-  mutate(
-    
-    size = case_when(
-      
-      Role=="None" ~ 2.8,
-      
-      Role=="Degree" ~ 5,
-      
-      Role=="BTW" ~ 5
-      
-    )
-    
-  )
-
-
-traj_draw <-
-  
-  traj_draw %>%
-  
-  mutate(
-    
-    fill = case_when(
-      
-      Role=="None" ~ "grey92",
-      
-      Role=="Degree" ~ "#D55E00",
-      
-      Role=="BTW" ~ "#D55E00"
-      
-    )
-    
-  )
-
-panelD = panelD + geom_path(
-  
-  data = traj_draw,
-  
-  aes(
-    
-    x,
-    
-    y,
-    
-    group=Trajectory
-    
+  Configuration = c(
+    "TJA_1",
+    "TJA_2",
+    "TJA_3",
+    "TJA_4",
+    "TJA_5",
+    "JA_1",
+    "JA_2",
+    "JA_3",
+    "JA_4",
+    "TJ_1"
   ),
   
-  colour="#D55E00",
+  T = c(
+    "Non-hub",
+    "Non-hub",
+    "Non-hub",
+    "Degree hub",
+    "Non-hub",
+    NA,
+    NA,
+    NA,
+    NA,
+    "Non-hub"
+  ),
   
-  linewidth=.45,
+  J = c(
+    "Non-hub",
+    "Betweenness hub",
+    "Non-hub",
+    "Non-hub",
+    "Betweenness hub",
+    "Betweenness hub",
+    "Non-hub",
+    "Dual hub",
+    "Betweenness hub",
+    "Betweenness hub"
+  ),
   
-  linetype=2
+  A = c(
+    "Non-hub",
+    "Non-hub",
+    "Degree hub",
+    "Non-hub",
+    "Betweenness hub",
+    "Non-hub",
+    "Degree hub",
+    "Non-hub",
+    "Betweenness hub",
+    NA
+  ),
   
-)+
+  n = c(
+    31, 2, 3, 3, 1,
+    20, 16, 5, 1, 3
+  ),
+  
+  stringsAsFactors = FALSE
+)
+
+# Vertical positions for compact rows
+sequence_examples$y <- seq(
+  from = 1.65,
+  to = 0.12,
+  length.out = nrow(sequence_examples)
+)
+
+# Convert the configuration matrix into plotting coordinates
+sequence_states <- sequence_examples %>%
+  select(Configuration, y, T, J, A) %>%
+  tidyr::pivot_longer(
+    cols = c(T, J, A),
+    names_to = "Group",
+    values_to = "Status"
+  ) %>%
+  filter(!is.na(Status)) %>%
+  mutate(
+    x = unname(sequence_group_x[Group]),
+    Status = factor(
+      Status,
+      levels = c(
+        "Non-hub",
+        "Degree hub",
+        "Betweenness hub",
+        "Dual hub"
+      )
+    )
+  )
+
+# Group labels and explanatory subtitle
+fig3 <- fig3 +
+  
+  annotate(
+    "text",
+    x = 2.75,
+    y = 2.10,
+    label = "Observed topological configurations",
+    fontface = "bold",
+    size = 3.4
+  ) +
+  
+  annotate(
+    "text",
+    x = sequence_group_x,
+    y = 1.88,
+    label = c("T", "J", "A"),
+    fontface = "bold",
+    size = 3.5
+  ) +
+  
+  annotate(
+    "text",
+    x = 4.42,
+    y = 1.88,
+    label = "n",
+    fontface = "bold",
+    size = 3.5
+  )
+
+# Topological states
+fig3 <- fig3 +
+  
   geom_point(
+    data = sequence_states,
+    aes(x, y, shape = Status),
+    size = 3.2,
+    fill = COLORS$highlighted,
+    colour = "black",
+    stroke = 0.65
+  ) +
   
-  data=traj_draw,
-  
-  aes(
-    
-    x,
-    
-    y,
-    
-    size=size
-    
-  ),
-  
-  shape=21,
-  
-  fill=traj_draw$fill,
-  
-  colour="black",
-  
-  stroke=.6
-  
-)+
-  scale_size_identity()
+  scale_shape_manual(
+    values = c(
+      "Non-hub" = 21,
+      "Degree hub" = 24,
+      "Betweenness hub" = 23,
+      "Dual hub" = 22
+    ),
+    guide = "none"
+  )
 
+# Number of sequence-equivalent units in each configuration
+fig3 <- fig3 +
+  
+  geom_text(
+    data = sequence_examples,
+    aes(
+      x = 4.42,
+      y = y,
+      label = n
+    ),
+    size = 2.8,
+    hjust = 0.5,
+    vjust = 0.5
+  )
 
-pdf("PanelD.pdf")
-panelD
-dev.off()
+# ---------------------------------------------------------------------------
+# 8. Legend for topological states
+# ---------------------------------------------------------------------------
 
+legend_y <- -0.33
 
-# Save main figures using the same objects produced above. Adjust device options
-# here if journal-specific dimensions are required.
-#
-# ggsave(file.path(FIGURES_DIR, "Fig1.pdf"), ...)
-# ggsave(file.path(FIGURES_DIR, "Fig2.pdf"), ...)
-# ggsave(file.path(FIGURES_DIR, "Fig3.pdf"), ...)
-#
-# The original analysis script used several intermediate plot objects and PDF
-# devices. Those exports are intentionally not executed automatically in this
-# first refactor; final journal-ready export settings can be centralized here.
+legend_data <- data.frame(
+  x = c(1.05, 1.95, 2.95, 4.00),
+  y = legend_y,
+  Status = factor(
+    c(
+      "Non-hub",
+      "Degree hub",
+      "Betweenness hub",
+      "Dual hub"
+    ),
+    levels = c(
+      "Non-hub",
+      "Degree hub",
+      "Betweenness hub",
+      "Dual hub"
+    )
+  )
+)
+
+fig3 <- fig3 +
+  
+  geom_point(
+    data = legend_data,
+    aes(x, y, shape = Status),
+    size = 2.8,
+    fill = COLORS$highlighted,
+    colour = "black",
+    stroke = 0.6
+  ) +
+  
+  annotate(
+    "text",
+    x = legend_data$x + 0.16,
+    y = legend_data$y,
+    label = c(
+      "Non-hub",
+      "Degree",
+      "Betweenness",
+      "Dual hub"
+    ),
+    hjust = 0,
+    size = 2.5
+  )
+
+# ---------------------------------------------------------------------------
+# 9. Export
+# ---------------------------------------------------------------------------
+
+ggsave(
+  filename = "Figure_3_conceptual_model.pdf",
+  plot = fig3,
+  width = 11,
+  height = 6.5,
+  units = "in",
+  device = cairo_pdf
+)
+
+ggsave(
+  filename = "Figure_3_conceptual_model.png",
+  plot = fig3,
+  width = 11,
+  height = 6.5,
+  units = "in",
+  dpi = 600,
+  bg = "white"
+)
+
+fig3
