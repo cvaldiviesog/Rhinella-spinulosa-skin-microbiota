@@ -5,20 +5,20 @@
 #
 # Purpose
 # -------
-# This script contains the analytical and statistical workflow for the
-# Rhinella spinulosa skin microbiota study. Figure generation is kept in a
-# separate script.
+# This script contains the analytical/statistical workflow used for the manuscript
+# “Bacterial lineages persist despite microbial network reorganization across
+# amphibian development”. Figure generation is kept in a separate script.
 #
 # Reproducibility notes
 # ---------------------
-# 1. The Farellones taxonomy is read from data/Rhinella2_taxonomy.tsv.
+# 1. The Farellones taxonomy is read from data/taxonomy.tsv.
 # 2. Network metrics reported in Table 1 were estimated in Cytoscape and are
 #    therefore not recalculated here as substitutes.
 # 3. The n = 4 sensitivity analysis uses five independent random selections of
-#    four T and four J replicates; the A dataset already contains four replicates.
-# 4. Topological states are assigned independently within each group-specific
-#    network. No inferential comparisons between networks are performed.
-# 5. This script has been structurally refactored from the original analysis
+#    four tadpole and four juvenile replicates; the adult dataset already contains
+#    four replicates. The exact inferential comparison reported in the manuscript
+#    should be kept synchronized with the validated analysis record.
+# 4. This script has been structurally refactored from the original analysis
 #    script. It has not been executed in the current environment because R is
 #    unavailable here.
 #
@@ -32,6 +32,7 @@
 # data_feature-table2.biom
 # sample_data_longo.txt
 # taxonomy_Longo.tsv
+# tadpole_network_node_table.txt (Cytoscape node table after GLay clustering)
 #
 # ==============================================================================
 
@@ -54,6 +55,7 @@ LONGO_SEQS_FILE <- file.path(DATA_DIR, "representative-sequences_Longo.fasta")
 LONGO_BIOM_FILE <- file.path(DATA_DIR, "data_feature-table2.biom")
 LONGO_METADATA_FILE <- file.path(DATA_DIR, "sample_data_longo.txt")
 LONGO_TAXONOMY_FILE <- file.path(DATA_DIR, "taxonomy_Longo.tsv")
+TADPOLE_NODE_TABLE_FILE <- file.path(DATA_DIR, "tadpole_network_node_table.txt")
 
 suppressPackageStartupMessages({
   library(phyloseq)
@@ -81,7 +83,7 @@ suppressPackageStartupMessages({
 
 # ---- 1. Import and preprocess Farellones data -------------------------------
 
-# Import input files
+#importar archivos
 biom <- read_biom(BIOM_FILE)
 
 otu_mat <- as.matrix(biom_data(biom))
@@ -233,7 +235,7 @@ otu_water <- as(otu_table(ps_water), "matrix")
 rel_skin <- sweep(otu_skin, 2, colSums(otu_skin), "/")
 rel_water <- sweep(otu_water, 2, colSums(otu_water), "/")
 
-## Ensure that ASVs are arranged in rows
+## Asegurarse de que los ASVs sean filas
 if(!taxa_are_rows(ps_far)){
   otu_skin <- t(otu_skin)
 }
@@ -242,7 +244,7 @@ if(!taxa_are_rows(ps_water)){
   otu_water <- t(otu_water)
 }
 
-# Calculate summary statistics by environment
+#Calcular estadísticas por ambiente
 summary_skin <- data.frame(
   
   FeatureID = rownames(otu_skin),
@@ -271,7 +273,7 @@ summary_water <- data.frame(
   
 )
 
-# Combine the two summary tables
+#Unir ambas tablas
 asv_master <- full_join(
   
   summary_skin,
@@ -301,7 +303,7 @@ asv_master <- left_join(
 
 # ---- 4. Host-filtering categories ---------------------------------------------
 
-## Maximum observed relative abundance per ASV
+## Máxima abundancia relativa observada por ASV
 max_skin <- apply(rel_skin, 1, max)
 max_water <- apply(rel_water, 1, max)
 
@@ -666,7 +668,7 @@ ancom <- ancombc2(
 )
 
 
-# Add ANCOM-BC2 results to the master table
+# Incorporar resultados de ANCOM-BC2 a la tabla maestra
 
 ancom_res <- ancom$res %>%
   rename(FeatureID = taxon)
@@ -678,7 +680,7 @@ asv_master <- left_join(
 )
 
 
-# Summarize ANCOM-BC2 results by category
+# Resumen de resultados ANCOM-BC2 por categoría
 
 ancom_summary <- asv_master %>%
   group_by(Category) %>%
@@ -693,7 +695,7 @@ ancom_summary <- asv_master %>%
 
 ### Plots de prevalencia
 
-# Are core ASVs more abundant?
+# Los ASVs del core son realmente más abundantes?
 
 kw_data <- asv_master %>%
   filter(
@@ -732,7 +734,7 @@ dunn_res <- kw_data %>%
   )
 
 
-# Do core ASVs show higher prevalence?
+# Los ASVs del core son más persistentes?
 
 kw_prev <- asv_master %>%
   filter(
@@ -784,8 +786,8 @@ prev_summary$Letters <- c(
 )
 
 
-# Is category associated with ANCOM-BC2 significance?
-# Category versus significance (chi-square or Fisher's exact test)
+# Existe asociación entre categoría y significancia ANCOM?
+# Category vs significancia (Chi-cuadrado o Fisher)
 
 ancom_tested <- asv_master %>%
   filter(
@@ -809,7 +811,7 @@ chisq.test(tab)
 cramerV(tab)
 
 
-# Is prevalence associated with abundance?
+# Existe relación entre prevalencia y abundancia?
 
 cor.test(
   asv_master$Prev_skin,
@@ -918,14 +920,38 @@ createNetworkFromIgraph(
 
 
 
-### Degree/betweenness correlations versus abundance
+###Correlaciones Degree/Betweenness vs Abundance
+# Import the tadpole node table exported from Cytoscape after applying GLay
+# community detection (clusterMaker2). Save the semicolon-delimited export as
+# data/tadpole_network_node_table.txt before running this section.
+if (!file.exists(TADPOLE_NODE_TABLE_FILE)) {
+  stop(
+    "Cytoscape node table not found: ", TADPOLE_NODE_TABLE_FILE,
+    "\nExport the tadpole network node table after GLay clustering ",
+    "and save it at the path specified above."
+  )
+}
+
 FAR_mods <- read.table(
-  "Larval_skin_network default node.txt",
+  TADPOLE_NODE_TABLE_FILE,
   header = TRUE,
   sep = ";",
   quote = "\"",
-  stringsAsFactors = FALSE
+  stringsAsFactors = FALSE,
+  check.names = FALSE
 )
+
+required_node_columns <- c(
+  "name", "Category", "Genus", "X__glayCluster",
+  "Degree", "BetweennessCentrality"
+)
+missing_node_columns <- setdiff(required_node_columns, names(FAR_mods))
+if (length(missing_node_columns) > 0) {
+  stop(
+    "The Cytoscape node table is missing required columns: ",
+    paste(missing_node_columns, collapse = ", ")
+  )
+}
 
 num_cols <- c(
   "AverageShortestPathLength",
@@ -1023,7 +1049,7 @@ R2_between <- summary(lm_between)$r.squared
 
   
 
-### Degree/betweenness correlations versus ecological category
+###Correlaciones Degree/Betweenness vs category
 kw_net <- FAR_mods %>%
   
   filter(
@@ -1431,150 +1457,116 @@ subsampling_summary
 
 
 
-# ---- 8. Network modules and hubs ----------------------------------------------
+# ---- 8. Tadpole network modules and hubs --------------------------------------
 
-module_summary <-
-  
-  FAR_mods %>%
-  
+# GLay module assignments are imported from the Cytoscape node table.
+# Water-only ASVs are excluded because they are not nodes in the skin network.
+# Ecological categories are collapsed into three groups:
+# Core = both core categories; Shared = shared non-core;
+# Skin only = skin-only non-core.
+
+tadpole_nodes <- FAR_mods %>%
   filter(Category != "Water_only") %>%
-  
   mutate(
-    
     Group = case_when(
-      
       Category %in% c(
         "Core_detected_in_water",
         "Core_not_detected_in_water"
       ) ~ "Core",
-      
       Category == "Shared_non_core" ~ "Shared",
-      
-      Category == "Skin_only_non_core" ~ "Skin only"
-      
-    )
-    
-  ) %>%
-  
-  count(X__glayCluster, Group) %>%
-  
+      Category == "Skin_only_non_core" ~ "Skin only",
+      TRUE ~ NA_character_
+    ),
+    Group = factor(Group, levels = c("Core", "Shared", "Skin only"))
+  )
+
+if (anyNA(tadpole_nodes$Group)) {
+  stop("Unrecognized ecological categories in the Cytoscape node table.")
+}
+if (anyNA(tadpole_nodes$X__glayCluster)) {
+  stop("Some tadpole network nodes have no GLay module assignment.")
+}
+
+# Module composition: ASV counts and percentages within each module.
+module_counts <- tadpole_nodes %>%
+  count(X__glayCluster, Group, name = "ASVs") %>%
+  tidyr::complete(X__glayCluster, Group, fill = list(ASVs = 0))
+
+module_summary <- module_counts %>%
   group_by(X__glayCluster) %>%
-  
   mutate(
-    
-    Nodes = sum(n),
-    
-    Percent = round(100 * n / Nodes, 1)
-    
+    Nodes = sum(ASVs),
+    Percent = round(100 * ASVs / Nodes, 1)
   ) %>%
-  
   ungroup() %>%
-  
-  select(
-    X__glayCluster,
-    Nodes,
-    Group,
-    Percent
-  ) %>%
-  
+  select(X__glayCluster, Nodes, Group, ASVs, Percent) %>%
   pivot_wider(
-    
     names_from = Group,
-    
-    values_from = Percent,
-    
+    values_from = c(ASVs, Percent),
     values_fill = 0
-    
   ) %>%
-  
   arrange(desc(Nodes)) %>%
-  
-  rename(
-    
-    Module = X__glayCluster,
-    
-    `% Core` = Core,
-    
-    `% Shared` = Shared,
-    
-    `% Skin only` = `Skin only`
-    
-  )
+  rename(Module = X__glayCluster)
 
-dominant_genus <-
-  
-  FAR_mods %>%
-  
-  filter(Category != "Water_only") %>%
-  
-  count(X__glayCluster, Genus) %>%
-  
+# Dominant genus per module (descriptive summary).
+dominant_genus <- tadpole_nodes %>%
+  mutate(Genus = ifelse(is.na(Genus) | Genus == "", "Unclassified", Genus)) %>%
+  count(X__glayCluster, Genus, name = "Genus_nodes") %>%
   group_by(X__glayCluster) %>%
-  
-  slice_max(
-    n,
-    n = 1,
-    with_ties = FALSE
-  ) %>%
-  
+  slice_max(Genus_nodes, n = 1, with_ties = FALSE) %>%
   ungroup() %>%
-  
-  rename(
-    Module = X__glayCluster,
-    Dominant_genus = Genus,
-    Genus_nodes = n
-  )
+  rename(Module = X__glayCluster, Dominant_genus = Genus)
 
-module_summary <-
-  
-  module_summary %>%
-  
-  left_join(
-    dominant_genus,
-    by = "Module"
-  )
+module_summary <- module_summary %>%
+  left_join(dominant_genus, by = "Module")
 
-FAR_mods <- FAR_mods %>%
-  
-  filter(Category != "Water_only") %>%
-  
-  mutate(
-    
-    Group = case_when(
-      
-      Category %in% c(
-        "Core_detected_in_water",
-        "Core_not_detected_in_water"
-      ) ~ "Core",
-      
-      Category == "Shared_non_core" ~ "Shared",
-      
-      Category == "Skin_only_non_core" ~ "Skin only"
-      
-    )
-    
-  )
+# Test whether ecological groups are distributed independently across modules.
+tab_modules <- table(tadpole_nodes$X__glayCluster, tadpole_nodes$Group)
+module_chisq <- chisq.test(tab_modules)
+module_cramers_v <- rcompanion::cramerV(tab_modules)
+module_stdres <- round(module_chisq$stdres, 2)
 
-tab_modules <-
-  
-  table(
-    FAR_mods$X__glayCluster,
-    FAR_mods$Group
-  )
+# Export module composition and statistical diagnostics.
+write.csv(
+  module_summary,
+  file = file.path(RESULTS_DIR, "tadpole_module_composition.csv"),
+  row.names = FALSE
+)
+write.csv(
+  as.data.frame.matrix(tab_modules),
+  file = file.path(RESULTS_DIR, "tadpole_module_category_counts.csv")
+)
+write.csv(
+  as.data.frame.matrix(module_stdres),
+  file = file.path(RESULTS_DIR, "tadpole_module_standardized_residuals.csv")
+)
 
-chisq_mod <- chisq.test(tab_modules)
+module_test_summary <- tibble(
+  statistic = unname(module_chisq$statistic),
+  df = unname(module_chisq$parameter),
+  p_value = module_chisq$p.value,
+  cramers_v = unname(module_cramers_v)
+)
+write.csv(
+  module_test_summary,
+  file = file.path(RESULTS_DIR, "tadpole_module_association_test.csv"),
+  row.names = FALSE
+)
 
-chisq_mod$expected
+# Print diagnostics to the R console.
+module_summary
+module_chisq$expected
+module_chisq
+module_cramers_v
+module_stdres
 
-chisq_mod
-cramerV(tab_modules)
+# Continue hub analyses using the same filtered tadpole node table.
+FAR_mods <- as.data.frame(tadpole_nodes)
 
-round(chisq_mod$stdres,2)
-
-## Hub identity
+## identidad de los hubs
 
 # Degree, BetweennessCentrality y ClosenessCentrality
-# were imported from the Cytoscape node table.
+# fueron importados desde la tabla de nodos de Cytoscape.
 
 FAR_mods$Degree_norm <-
   FAR_mods$Degree/(nrow(FAR_mods)-1)
@@ -1603,7 +1595,7 @@ between_set <- FAR_mods$name[FAR_mods$Hub_between]
 length(intersect(degree_set, between_set)) /
   length(union(degree_set, between_set))
 
-# Hub enrichment
+#Enriquecimiento de hubs
 FAR_mods <- FAR_mods %>%
   mutate(
     CoreGroup = ifelse(
@@ -1721,7 +1713,7 @@ hub_prop$Label <-
 
 
 
-## Core network
+##RED del core
 
 core_asvs <-
   
@@ -1943,19 +1935,19 @@ CORE_mods <- CORE_mods %>%
     Hub = Hub_degree | Hub_between
   )
 
-# How many hubs from the full network are also present in the core network?
+#Cuántos hubs de la red completa sobreviven en la red core?
 degree_full <- FAR_mods %>%
   filter(Hub_degree)
 
 between_full <- FAR_mods %>%
   filter(Hub_between)
 
-# Degree hubs also present in the core network
+# Degree hubs que siguen presentes en la red core
 sum(degree_full$name %in% V(ig_core)$name)
 
 
 
-# ---- 9. Group-specific network analyses --------------------------------------
+# ---- 9. Ontogenetic networks -------------------------------------------------
 
 ####Longo dataset
 biom_longo <- read_biom(
@@ -2041,7 +2033,7 @@ META_longo <- sample_data(
   meta_longo
 )
 
-### Function to process count matrices
+###Función para procesar matrices de conteo
 
 build_phyloseq_dataset <- function(
     biom_file,
@@ -2071,7 +2063,7 @@ build_phyloseq_dataset <- function(
   )
   
   ##----------------------------------------------------------
-  ## Read taxonomy
+  ## Leer taxonomía
   ##----------------------------------------------------------
   
   tax <- read.delim(
@@ -2145,7 +2137,7 @@ build_phyloseq_dataset <- function(
   SAM <- sample_data(meta)
   
   ##----------------------------------------------------------
-  ## Build the phyloseq object
+  ## Construir phyloseq
   ##----------------------------------------------------------
   
   ps <- phyloseq(
@@ -2321,7 +2313,7 @@ build_phyloseq_dataset <- function(
   }
   
   ##----------------------------------------------------------
-  ## Build the ASV master table
+  ## Construir ASV master
   ##----------------------------------------------------------
   
   asv_master <- summary_list[[1]]
@@ -2430,7 +2422,7 @@ adj_JUV <- getRefit(se_JUV)
 
 adj_ADU <- getRefit(se_ADU)
 
-# Build networks
+#Construir redes
 g_JUV <- graph_from_adjacency_matrix(
   adj_JUV,
   mode = "undirected",
@@ -2560,7 +2552,7 @@ V(g_ADU)$TotalCount <-
 
 
 
-# Export networks
+#Exportar redes
 createNetworkFromIgraph(
   g_JUV,
   title = "Juvenile_network",
@@ -2573,7 +2565,7 @@ createNetworkFromIgraph(
   collection = "Ontogeny"
 )
 
-## Import node tables
+##Importar tablas de nodos
 YL_mods <- read.table(
   "Juvenile_network_module_assignation.csv",
   header = TRUE,
@@ -2590,7 +2582,7 @@ PAR_mods <- read.table(
   stringsAsFactors = FALSE
 )
 
-# Calculate topological metrics
+#Calcular metricas topologicas
 YL_mods <- YL_mods %>%
   mutate(
     Degree_norm = Degree/(n()-1)
@@ -2613,14 +2605,14 @@ YL_mods$BetweennessCentrality <-
     
   )
 
-# Define thresholds
+#Definir umbrales
 bet95_YL <- quantile(
   YL_mods$BetweennessCentrality,
   .95,
   na.rm = TRUE
 )
 
-# Define hubs
+#Definir hubs
 YL_mods <- YL_mods %>%
   mutate(
     
@@ -2948,7 +2940,7 @@ summarise_sub(sub_btw20)
 
 summarise_sub(sub_btw30)
 
-######## Adults
+########Adultos###
 PAR_mods <- PAR_mods %>%
   mutate(
     Degree_norm = Degree/(n()-1)
@@ -2972,14 +2964,14 @@ PAR_mods$BetweennessCentrality <-
     
   )
 
-# Define thresholds
+#Definir umbrales
 bet95 <- quantile(
   PAR_mods$BetweennessCentrality,
   .95,
   na.rm = TRUE
 )
 
-# Define hubs
+#Definir hubs
 PAR_mods <- PAR_mods %>%
   mutate(
     
@@ -3308,424 +3300,394 @@ summarise_sub(sub_btw20)
 summarise_sub(sub_btw30)
 
 
-# ---- 10. Sequence-equivalent ASVs and topological configurations --------------
+# ---- 10. Persistence across development --------------------------------------
 
-# Sequence equivalence is defined by identical nucleotide sequences across the
-# shared 199-bp region. This is a sequence-level correspondence, not evidence
-# that ASVs represent the same strain or a continuously tracked lineage.
-#
-# Group labels used throughout this section:
-# T = tadpole, J = juvenile, A = adult.
-#
-# The T topological annotations are taken from the 875-node Cytoscape export
-# (FAR_mods), not from g_skin, which is a separate core-restricted network.
+#############################################################
 
-# ---- 10.1 Import representative sequences ------------------------------------
 
-seq_T <- readDNAStringSet(FAR_SEQS_FILE)
-seq_post <- readDNAStringSet(LONGO_SEQS_FILE)
-
-# Retain the shared 199-bp region for sequence matching.
-seq_T_199 <- DNAStringSet(
-  substr(as.character(seq_T), 1, 199)
-)
-names(seq_T_199) <- names(seq_T)
-
-seq_post_199 <- DNAStringSet(
-  substr(as.character(seq_post), 1, 199)
-)
-names(seq_post_199) <- names(seq_post)
-
-sequence_length_audit <- tibble(
-  Dataset = c("T", "J/A"),
-  Min_length = c(min(width(seq_T)), min(width(seq_post))),
-  Max_length = c(max(width(seq_T)), max(width(seq_post))),
-  Matching_region_bp = 199
+###Homologar IDs de ASVs entre corridas independientes de Deblur
+seq_larva <- readDNAStringSet(
+  FAR_SEQS_FILE
 )
 
-sequence_length_audit
-
-# Confirm that every ASV in the relevant phyloseq objects has a FASTA record.
-stopifnot(
-  all(taxa_names(ps_far) %in% names(seq_T_199)),
-  all(taxa_names(ps_JUV) %in% names(seq_post_199)),
-  all(taxa_names(ps_ADU) %in% names(seq_post_199))
+seq_post <- readDNAStringSet(
+  LONGO_SEQS_FILE
 )
 
-# ---- 10.2 Build the ASV-to-sequence mapping -----------------------------------
-
-map_T <- tibble(
-  ASV_ID = taxa_names(ps_far),
-  Sequence_199 = as.character(
-    seq_T_199[match(taxa_names(ps_far), names(seq_T_199))]
-  ),
-  Group = "T"
+larva199 <- DNAStringSet(
+  substr(
+    as.character(seq_larva),
+    1,
+    199
+  )
 )
 
-map_J <- tibble(
-  ASV_ID = taxa_names(ps_JUV),
-  Sequence_199 = as.character(
-    seq_post_199[match(taxa_names(ps_JUV), names(seq_post_199))]
-  ),
-  Group = "J"
+names(larva199) <- names(seq_larva)
+
+post199 <- DNAStringSet(
+  substr(
+    as.character(seq_post),
+    1,
+    199
+  )
 )
 
-map_A <- tibble(
-  ASV_ID = taxa_names(ps_ADU),
-  Sequence_199 = as.character(
-    seq_post_199[match(taxa_names(ps_ADU), names(seq_post_199))]
-  ),
-  Group = "A"
+names(post199) <- names(seq_post)
+
+
+larva_df <- data.frame(
+  
+  Larva_ID = names(larva199),
+  
+  Sequence = as.character(larva199),
+  
+  stringsAsFactors = FALSE
+  
 )
 
-asv_mapping_clean <- bind_rows(
-  map_T,
-  map_J,
-  map_A
+post_df <- data.frame(
+  
+  Post_ID = names(post199),
+  
+  Sequence = as.character(post199),
+  
+  stringsAsFactors = FALSE
+  
 )
 
-# Assign one identifier to each unique sequence across the three groups.
-sequence_catalog_clean <- asv_mapping_clean %>%
-  distinct(Sequence_199) %>%
+equivalencias <- dplyr::inner_join(
+  
+  larva_df,
+  
+  post_df,
+  
+  by = "Sequence"
+  
+)
+
+equivalencias <- equivalencias %>%
   mutate(
-    Sequence_ID = sprintf("SEQ_%04d", row_number())
+    Larva = TRUE,
+    Juvenile = Post_ID %in% taxa_names(ps_JUV),
+    Adult = Post_ID %in% taxa_names(ps_ADU)
   )
 
-asv_mapping_clean <- asv_mapping_clean %>%
-  left_join(sequence_catalog_clean, by = "Sequence_199")
-
-# Mapping integrity checks.
-mapping_audit <- asv_mapping_clean %>%
-  group_by(Group) %>%
-  summarise(
-    ASVs = n(),
-    Unique_ASVs = n_distinct(ASV_ID),
-    Missing_sequences = sum(is.na(Sequence_199)),
-    Missing_sequence_IDs = sum(is.na(Sequence_ID)),
-    Duplicated_ASV_IDs = sum(duplicated(ASV_ID)),
-    .groups = "drop"
+equivalencias$Persistence <-
+  rowSums(
+    equivalencias[, c("Larva", "Juvenile", "Adult")]
   )
 
-mapping_audit
-
-stopifnot(
-  !anyNA(asv_mapping_clean$Sequence_ID),
-  nrow(asv_mapping_clean) == nrow(distinct(asv_mapping_clean, Group, ASV_ID))
-)
-
-# ---- 10.3 Determine sequence presence across groups ---------------------------
-
-# Each ASV in the mapping was detected in at least one sample of its group.
-# Presence is therefore summarized at the sequence-equivalent level.
-presence_groups <- asv_mapping_clean %>%
-  distinct(Sequence_ID, Group) %>%
-  mutate(Present = TRUE) %>%
-  pivot_wider(
-    names_from = Group,
-    values_from = Present,
-    values_fill = FALSE
-  ) %>%
-  mutate(
-    across(
-      c(T, J, A),
-      ~ replace_na(.x, FALSE)
-    ),
-    Pattern = paste0(
-      if_else(T, "T", ""),
-      if_else(J, "J", ""),
-      if_else(A, "A", "")
-    )
-  ) %>%
-  select(Sequence_ID, T, J, A, Pattern)
-
-sequence_pattern_summary <- presence_groups %>%
-  count(Pattern, name = "N_sequences") %>%
-  mutate(
-    Percentage = round(100 * N_sequences / sum(N_sequences), 2)
-  ) %>%
-  arrange(desc(N_sequences))
-
-sequence_pattern_summary
-
-stopifnot(
-  nrow(presence_groups) == n_distinct(asv_mapping_clean$Sequence_ID),
-  !anyDuplicated(presence_groups$Sequence_ID),
-  !anyNA(presence_groups$Pattern)
-)
-
-# ---- 10.4 Harmonize hub annotations from Cytoscape ----------------------------
-
-# FAR_mods contains the 875-node T network annotation table.
-# YL_mods and PAR_mods contain the J and A network annotation tables.
-network_hubs <- bind_rows(
-  FAR_mods %>%
-    transmute(
-      Group = "T",
-      ASV_ID = as.character(name),
-      Hub_degree = as.logical(as.character(Hub_degree)),
-      Hub_between = as.logical(as.character(Hub_between))
-    ),
-  YL_mods %>%
-    transmute(
-      Group = "J",
-      ASV_ID = as.character(name),
-      Hub_degree = as.logical(as.character(Hub_degree)),
-      Hub_between = as.logical(as.character(Hub_between))
-    ),
-  PAR_mods %>%
-    transmute(
-      Group = "A",
-      ASV_ID = as.character(name),
-      Hub_degree = as.logical(as.character(Hub_degree)),
-      Hub_between = as.logical(as.character(Hub_between))
-    )
-) %>%
-  mutate(
-    Hub_status = case_when(
-      Hub_degree & Hub_between ~ "Dual_hub",
-      Hub_degree ~ "Degree_hub",
-      Hub_between ~ "Betweenness_hub",
-      TRUE ~ "Non_hub"
-    )
+equivalencias$Pattern <-
+  paste0(
+    ifelse(equivalencias$Larva, "L", ""),
+    ifelse(equivalencias$Juvenile, "J", ""),
+    ifelse(equivalencias$Adult, "A", "")
   )
 
-network_hubs_audit <- network_hubs %>%
-  group_by(Group) %>%
-  summarise(
-    Nodes = n(),
-    Unique_ASVs = n_distinct(ASV_ID),
-    Missing_ASV_IDs = sum(is.na(ASV_ID) | ASV_ID == ""),
-    Missing_degree_annotations = sum(is.na(Hub_degree)),
-    Missing_betweenness_annotations = sum(is.na(Hub_between)),
-    Missing_hub_status = sum(is.na(Hub_status)),
-    .groups = "drop"
-  )
+persistent_ASVs <- equivalencias
 
-network_hubs_audit
-
-stopifnot(
-  !anyDuplicated(network_hubs[c("Group", "ASV_ID")]),
-  !anyNA(network_hubs$Hub_status)
-)
-
-# ---- 10.5 Assign topological states to sequence-equivalent units ---------------
-
-sequence_hub_status <- asv_mapping_clean %>%
+persistent_ASVs <-
+  
+  persistent_ASVs %>%
+  
   left_join(
-    network_hubs,
-    by = c("Group", "ASV_ID")
-  )
-
-# All mapped ASVs should have a corresponding Cytoscape annotation.
-sequence_annotation_audit <- sequence_hub_status %>%
-  group_by(Group) %>%
-  summarise(
-    ASVs = n(),
-    Missing_network_annotations = sum(is.na(Hub_status)),
-    .groups = "drop"
-  )
-
-sequence_annotation_audit
-
-stopifnot(!anyNA(sequence_hub_status$Hub_status))
-
-# A sequence may map to multiple ASVs within a group. If those ASVs have
-# different hub states, the sequence-equivalent unit is classified as Discordant.
-sequence_hub_summary <- sequence_hub_status %>%
-  group_by(Sequence_ID, Group) %>%
-  summarise(
-    Hub_status = {
-      states <- unique(Hub_status[!is.na(Hub_status)])
-      if (length(states) == 0) {
-        "Not_in_network"
-      } else if (length(states) > 1) {
-        "Discordant"
-      } else {
-        states[[1]]
-      }
-    },
-    ASVs_per_sequence = n_distinct(ASV_ID),
-    .groups = "drop"
-  )
-
-# Build the complete descriptive matrix, retaining sequences detected in
-# only one group and explicitly marking groups in which a sequence was absent.
-sequence_topology_complete <- sequence_hub_summary %>%
-  select(Sequence_ID, Group, Hub_status) %>%
-  pivot_wider(
-    names_from = Group,
-    values_from = Hub_status
+    
+    FAR_mods %>%
+      
+      select(
+        
+        name,
+        
+        Degree,
+        
+        Degree_norm,
+        
+        BetweennessCentrality,
+        
+        MeanRel_skin,
+        
+        Hub_degree,
+        
+        Hub_between,
+        
+        Hub,
+        
+        Hub_type,
+        
+        X__glayCluster
+        
+      ),
+    
+    by = c("Larva_ID" = "name")
+    
   ) %>%
+  
+  rename(
+    
+    Degree_L = Degree,
+    
+    DegreeNorm_L = Degree_norm,
+    
+    BTW_L = BetweennessCentrality,
+    
+    MeanRel_L = MeanRel_skin,
+    
+    HubDegree_L = Hub_degree,
+    
+    HubBTW_L = Hub_between,
+    
+    Hub_L = Hub,
+    
+    HubType_L = Hub_type,
+    
+    Module_L = X__glayCluster
+    
+  )
+
+persistent_ASVs <-
+  
+  persistent_ASVs %>%
+  
   left_join(
-    presence_groups %>%
-      select(Sequence_ID, Pattern),
-    by = "Sequence_ID"
+    
+    YL_mods %>%
+      
+      select(
+        
+        name,
+        
+        Degree,
+        
+        Degree_norm,
+        
+        BetweennessCentrality,
+        
+        MeanRel,
+        
+        Hub_degree,
+        
+        Hub_between,
+        
+        Hub,
+        
+        X__glayCluster
+        
+      ),
+    
+    by = c("Post_ID" = "name")
+    
   ) %>%
+  
+  rename(
+    
+    Degree_J = Degree,
+    
+    DegreeNorm_J = Degree_norm,
+    
+    BTW_J = BetweennessCentrality,
+    
+    MeanRel_J = MeanRel,
+    
+    HubDegree_J = Hub_degree,
+    
+    HubBTW_J = Hub_between,
+    
+    Hub_J = Hub,
+    
+    Module_J = X__glayCluster
+    
+  )
+
+
+persistent_ASVs <-
+  
+  persistent_ASVs %>%
+  
+  left_join(
+    
+    PAR_mods %>%
+      
+      select(
+        
+        name,
+        
+        Degree,
+        
+        Degree_norm,
+        
+        BetweennessCentrality,
+        
+        MeanRel,
+        
+        Hub_degree,
+        
+        Hub_between,
+        
+        Hub,
+        
+        X__glayCluster
+        
+      ),
+    
+    by = c("Post_ID" = "name")
+    
+  ) %>%
+  
+  rename(
+    
+    Degree_A = Degree,
+    
+    DegreeNorm_A = Degree_norm,
+    
+    BTW_A = BetweennessCentrality,
+    
+    MeanRel_A = MeanRel,
+    
+    HubDegree_A = Hub_degree,
+    
+    HubBTW_A = Hub_between,
+    
+    Hub_A = Hub,
+    
+    Module_A = X__glayCluster
+    
+  )
+
+persistent_ASVs <-
+  
+  persistent_ASVs %>%
+  
   mutate(
-    across(
-      c(T, J, A),
-      ~ replace_na(.x, "Not_detected")
-    )
-  ) %>%
-  select(Sequence_ID, Pattern, T, J, A)
-
-# Matrix integrity and sequence-presence summaries.
-dim(sequence_topology_complete)
-
-sequence_topology_complete %>%
-  count(Pattern, name = "N_sequences")
-
-sequence_topology_complete %>%
-  summarise(
-    Missing_T = sum(is.na(T)),
-    Missing_J = sum(is.na(J)),
-    Missing_A = sum(is.na(A)),
-    Missing_Pattern = sum(is.na(Pattern))
-  )
-
-stopifnot(
-  nrow(sequence_topology_complete) == nrow(sequence_catalog_clean),
-  !anyDuplicated(sequence_topology_complete$Sequence_ID),
-  !anyNA(sequence_topology_complete[c("T", "J", "A", "Pattern")])
-)
-
-# Descriptive distribution of topological states within each group.
-topology_state_summary <- sequence_topology_complete %>%
-  select(T, J, A) %>%
-  pivot_longer(
-    cols = everything(),
-    names_to = "Group",
-    values_to = "Hub_status"
-  ) %>%
-  count(Group, Hub_status, name = "N_sequences") %>%
-  arrange(Group, Hub_status)
-
-topology_state_summary
-
-# Identify sequence-equivalent units with conflicting ASV-level hub states.
-discordant_sequences <- sequence_topology_complete %>%
-  filter(
-    T == "Discordant" |
-      J == "Discordant" |
-      A == "Discordant"
-  ) %>%
-  select(Sequence_ID, Pattern, T, J, A)
-
-discordant_sequence_details <- sequence_hub_status %>%
-  semi_join(
-    discordant_sequences,
-    by = "Sequence_ID"
-  ) %>%
-  select(Sequence_ID, Group, ASV_ID, Hub_status) %>%
-  arrange(Sequence_ID, Group, Hub_status, ASV_ID)
-
-discordant_sequences
-discordant_sequence_details
-
-# Quantify sequence-equivalent units represented by multiple ASVs within
-# each group, distinguishing concordant from discordant hub assignments.
-sequence_multiplicity <- sequence_hub_status %>%
-  group_by(Group, Sequence_ID) %>%
-  summarise(
-    n_ASVs = n_distinct(ASV_ID),
-    n_states = n_distinct(Hub_status),
-    Hub_states = paste(
-      sort(unique(Hub_status)),
-      collapse = " + "
+    
+    HubType_J = case_when(
+      
+      HubDegree_J & HubBTW_J ~ "Both",
+      
+      HubDegree_J ~ "Degree",
+      
+      HubBTW_J ~ "BTW",
+      
+      TRUE ~ "Non hub"
+      
     ),
-    .groups = "drop"
+    
+    HubType_A = case_when(
+      
+      HubDegree_A & HubBTW_A ~ "Both",
+      
+      HubDegree_A ~ "Degree",
+      
+      HubBTW_A ~ "BTW",
+      
+      TRUE ~ "Non hub"
+      
+    )
+    
   )
 
-sequence_multiplicity_audit <- sequence_multiplicity %>%
-  filter(n_ASVs > 1) %>%
-  group_by(Group) %>%
-  summarise(
-    Multi_ASV_sequences = n(),
-    Concordant = sum(n_states == 1),
-    Discordant = sum(n_states > 1),
-    .groups = "drop"
+persistent_ASVs$MeanRel_L <-
+  
+  gsub(
+    ",",
+    ".",
+    persistent_ASVs$MeanRel_L
   )
 
-sequence_multiplicity_audit
+persistent_ASVs$MeanRel_L <-
+  
+  as.numeric(
+    persistent_ASVs$MeanRel_L
+  )
 
-# ---- 10.6 Summarize shared sequence-equivalent units for Table 2 ---------------
-
-# Only sequence-equivalent units detected in at least two groups are included.
-# The table reports observed configurations; no statistical comparisons
-# between independently inferred group networks are performed.
-shared_topology_summary <- sequence_topology_complete %>%
-  filter(Pattern %in% c("TJ", "JA", "TJA")) %>%
-  count(Pattern, T, J, A, name = "n") %>%
+persistent_ASVs <-
+  
+  persistent_ASVs %>%
+  
   arrange(
-    factor(Pattern, levels = c("JA", "TJ", "TJA")),
-    desc(n),
-    T, J, A
+    
+    Post_ID,
+    
+    desc(Degree_L),
+    
+    desc(MeanRel_L)
+    
+  ) %>%
+  
+  distinct(
+    
+    Post_ID,
+    
+    .keep_all = TRUE
+    
   )
 
-shared_topology_summary
+persistent_ASVs <-
+  
+  persistent_ASVs %>%
+  
+  distinct(
+    
+    Post_ID,
+    
+    .keep_all = TRUE
+    
+  )
 
-shared_sequence_summary <- sequence_topology_complete %>%
-  filter(Pattern %in% c("TJ", "JA", "TJA")) %>%
-  count(Pattern, name = "N_shared_sequences") %>%
-  arrange(factor(Pattern, levels = c("JA", "TJ", "TJA")))
+persistent_ASVs$Persistence_group <-
+  
+  factor(
+    
+    persistent_ASVs$Pattern,
+    
+    levels = c(
+      
+      "L",
+      
+      "LJ",
+      
+      "LJA"
+      
+    )
+    
+  )
 
-shared_sequence_summary
+persistent_ASVs %>%
+  
+  group_by(Post_ID) %>%
+  
+  summarise(
+    
+    n = n(),
+    
+    n_module = n_distinct(Module_L),
+    
+    n_hub = n_distinct(HubType_L),
+    
+    n_degree = n_distinct(Degree_L)
+    
+  ) %>%
+  
+  filter(n > 1)
 
-stopifnot(
-  sum(shared_topology_summary$n) ==
-    sum(sequence_topology_complete$Pattern %in% c("TJ", "JA", "TJA"))
-)
+LJA <-
+  
+  persistent_ASVs %>%
+  
+  filter(
+    Pattern == "LJA"
+  )
 
-# ---- 10.7 Export sequence-equivalence results ----------------------------------
 
-write.table(
-  asv_mapping_clean,
-  file.path(RESULTS_DIR, "sequence_equivalence_ASV_mapping.tsv"),
-  sep = "\t",
-  row.names = FALSE,
-  quote = FALSE
-)
-
-write.table(
-  sequence_topology_complete,
-  file.path(RESULTS_DIR, "sequence_topology_complete.tsv"),
-  sep = "\t",
-  row.names = FALSE,
-  quote = FALSE
-)
-
-write.table(
-  shared_topology_summary,
-  file.path(RESULTS_DIR, "Table_2_topological_configurations.tsv"),
-  sep = "\t",
-  row.names = FALSE,
-  quote = FALSE
-)
-
-write.table(
-  discordant_sequence_details,
-  file.path(RESULTS_DIR, "discordant_sequence_ASVs.tsv"),
-  sep = "\t",
-  row.names = FALSE,
-  quote = FALSE
-)
-
-write.table(
-  sequence_multiplicity_audit,
-  file.path(RESULTS_DIR, "sequence_multiplicity_audit.tsv"),
-  sep = "\t",
-  row.names = FALSE,
-  quote = FALSE
-)
 
 # ---- 11. Sensitivity analysis: homogeneous sample size (n = 4) --------------
 # Five independent re-inferences are generated. Each iteration randomly selects
-# four of the five T replicates and four of the ten J replicates. The A dataset
-# contains four replicates and is retained without subsampling.
+# four of the five tadpole replicates and four of the ten juvenile replicates.
+# Adults are fixed at their four available replicates.
 #
-# This block evaluates the sensitivity of network inference to sample size.
-# It does not perform inferential comparisons between independently inferred
-# group networks.
+# This block is intentionally limited to the network re-inference and topology
+# extraction. The manuscript-level inferential comparison should use the same
+# validated statistical procedure as the analysis record; no p-values are
+# hard-coded here.
 
 infer_network_n4 <- function(ps_obj, stage = c("tadpole", "juvenile", "adult"), seed = NULL) {
   stage <- match.arg(stage)
@@ -3755,7 +3717,7 @@ infer_network_n4 <- function(ps_obj, stage = c("tadpole", "juvenile", "adult"), 
       pulsar.params = list(rep.num = 50)
     )
   } else {
-    # The A dataset already contains n = 4.
+    # Adults already have n = 4.
     se <- spiec.easi(
       ps_obj,
       method = "mb",
@@ -3824,9 +3786,9 @@ sensitivity_metrics_n4 <- purrr::map_dfr(
   sensitivity_n4,
   function(x) {
     bind_rows(
-      T = x$tadpole$metrics,
-      J = x$juvenile$metrics,
-      A = x$adult$metrics,
+      Tadpoles = x$tadpole$metrics,
+      Juveniles = x$juvenile$metrics,
+      Adults = x$adult$metrics,
       .id = "Stage"
     ) %>%
       mutate(Iteration = x$iteration, .before = 1)
@@ -3837,9 +3799,9 @@ sensitivity_samples_n4 <- purrr::map_dfr(
   sensitivity_n4,
   function(x) {
     bind_rows(
-      T = tibble(Sample = x$tadpole$samples),
-      J = tibble(Sample = x$juvenile$samples),
-      A = tibble(Sample = x$adult$samples),
+      Tadpoles = tibble(Sample = x$tadpole$samples),
+      Juveniles = tibble(Sample = x$juvenile$samples),
+      Adults = tibble(Sample = x$adult$samples),
       .id = "Stage"
     ) %>%
       mutate(Iteration = x$iteration, .before = 1)
