@@ -1,6 +1,6 @@
 # ==============================================================================
 # Rhinella spinulosa skin microbiota
-# Analysis pipeline — version 2
+# Analysis pipeline — version 3
 # ==============================================================================
 #
 # Purpose
@@ -14,13 +14,13 @@
 # 1. The Farellones taxonomy is read from data/taxonomy.tsv.
 # 2. Network metrics reported in Table 1 were estimated in Cytoscape and are
 #    therefore not recalculated here as substitutes.
-# 3. The n = 4 sensitivity analysis uses five independent random selections of
-#    four tadpole and four juvenile replicates; the adult dataset already contains
-#    four replicates. The exact inferential comparison reported in the manuscript
-#    should be kept synchronized with the validated analysis record.
-# 4. This script has been structurally refactored from the original analysis
-#    script. It has not been executed in the current environment because R is
-#    unavailable here.
+# 3. Network-edge sensitivity analyses are performed at the end of this pipeline.
+#    Tadpoles are evaluated using all five possible leave-one-out subsets of four
+#    individuals; juveniles are evaluated using five previously generated
+#    alternative n = 4 adjacency matrices in sensitivity_JUV_n4/. Adults are not
+#    resampled because only four individuals are available.
+# 4. Sensitivity results are exported to results/ as replicate-level and summary
+#    CSV files. The pipeline has not been executed in the current environment.
 #
 # Expected data files in data/
 # ----------------------------
@@ -864,57 +864,58 @@ skin_only_asvs <- asv_master %>%
   pull(FeatureID)
 # ---- 7. Tadpole association network ------------------------------------------
 
-ps_skin_network <- subset_taxa(
-  ps,
-  taxa_names(ps) %in% c(core_skin, skin_only_asvs))
-
-ps_core_network <- prune_taxa(
-  core_skin,
-  ps)
-
-ps_skin_network <- filter_taxa(
-  ps_skin_network,
+# The complete tadpole skin network is inferred from the five skin samples only.
+# ASVs are retained when detected in at least two skin samples, matching the
+# prevalence filter used for the validated FAR reference network.
+ps_far_network <- ps_far
+ps_far_network <- filter_taxa(
+  ps_far_network,
   function(x) sum(x > 0) >= 2,
   TRUE
 )
 
-se_skin <- spiec.easi(
-  ps_skin_network,
+ps_core_network <- prune_taxa(
+  core_skin,
+  ps_far
+)
+
+set.seed(123)
+se_far <- spiec.easi(
+  ps_far_network,
   method = "mb",
   lambda.min.ratio = 1e-2,
   nlambda = 20,
   pulsar.params = list(
     thresh = 0.05
-  ))
+  )
+)
 
-g_skin <- adj2igraph(
-  getRefit(se_skin),
+g_far <- adj2igraph(
+  getRefit(se_far),
   vertex.attr = list(
-    name = taxa_names(ps_skin_network)
+    name = taxa_names(ps_far_network)
   )
 )
 
 vertex_df <- asv_master %>%
-  filter(
-    FeatureID %in% V(g_skin)$name
-  )
+  filter(FeatureID %in% V(g_far)$name)
 
 idx <- match(
-  V(g_skin)$name,
+  V(g_far)$name,
   vertex_df$FeatureID
 )
 
-V(g_skin)$Kingdom <- vertex_df$Kingdom[idx]
-V(g_skin)$Phylum  <- vertex_df$Phylum[idx]
-V(g_skin)$Class   <- vertex_df$Class[idx]
-V(g_skin)$Order   <- vertex_df$Order[idx]
-V(g_skin)$Family  <- vertex_df$Family[idx]
-V(g_skin)$Genus   <- vertex_df$Genus[idx]
-V(g_skin)$Species <- vertex_df$Species[idx]
+V(g_far)$Kingdom <- vertex_df$Kingdom[idx]
+V(g_far)$Phylum  <- vertex_df$Phylum[idx]
+V(g_far)$Class   <- vertex_df$Class[idx]
+V(g_far)$Order   <- vertex_df$Order[idx]
+V(g_far)$Family  <- vertex_df$Family[idx]
+V(g_far)$Genus   <- vertex_df$Genus[idx]
+V(g_far)$Species <- vertex_df$Species[idx]
 
 createNetworkFromIgraph(
-  g_skin,
-  title = "Skin_microbiome",
+  g_far,
+  title = "Tadpole_skin_microbiome",
   collection = "Rhinella"
 )
 
@@ -3679,149 +3680,203 @@ LJA <-
 
 
 
-# ---- 11. Sensitivity analysis: homogeneous sample size (n = 4) --------------
-# Five independent re-inferences are generated. Each iteration randomly selects
-# four of the five tadpole replicates and four of the ten juvenile replicates.
-# Adults are fixed at their four available replicates.
-#
-# This block is intentionally limited to the network re-inference and topology
-# extraction. The manuscript-level inferential comparison should use the same
-# validated statistical procedure as the analysis record; no p-values are
-# hard-coded here.
+# ---- 11. Network-edge sensitivity analysis -----------------------------------
+# Evaluate how strongly inferred edges depend on the selection of biological
+# samples. Tadpoles: all five possible subsets of four out of five samples.
+# Juveniles: five previously generated, validated n = 4 adjacency matrices.
+# Adults are not resampled because only four individuals are available.
+# Only edge-based metrics are calculated; this section does not assess node
+# centrality or hub stability.
 
-infer_network_n4 <- function(ps_obj, stage = c("tadpole", "juvenile", "adult"), seed = NULL) {
-  stage <- match.arg(stage)
-  if (!is.null(seed)) set.seed(seed)
-
-  if (stage == "tadpole") {
-    ps_obj <- subset_samples(ps_obj, environment == "skin")
-    ps_obj <- subset_taxa(ps_obj, taxa_names(ps_obj) %in% c(core_skin, skin_only_asvs))
-    keep <- sample(sample_names(ps_obj), size = 4, replace = FALSE)
-    ps_obj <- prune_samples(keep, ps_obj)
-    ps_obj <- filter_taxa(ps_obj, function(x) sum(x > 0) >= 2, TRUE)
-    se <- spiec.easi(
-      ps_obj,
-      method = "mb",
-      lambda.min.ratio = 1e-2,
-      nlambda = 20,
-      pulsar.params = list(thresh = 0.05)
-    )
-  } else if (stage == "juvenile") {
-    keep <- sample(sample_names(ps_obj), size = 4, replace = FALSE)
-    ps_obj <- prune_samples(keep, ps_obj)
-    se <- spiec.easi(
-      ps_obj,
-      method = "mb",
-      lambda.min.ratio = 1e-2,
-      nlambda = 20,
-      pulsar.params = list(rep.num = 50)
-    )
-  } else {
-    # Adults already have n = 4.
-    se <- spiec.easi(
-      ps_obj,
-      method = "mb",
-      lambda.min.ratio = 1e-2,
-      nlambda = 20,
-      pulsar.params = list(rep.num = 50)
-    )
-    keep <- sample_names(ps_obj)
+# Extract undirected edges as sorted pairs of ASV identifiers. Sorting ensures
+# that an edge is represented identically regardless of vertex order.
+get_edge_set <- function(adjacency) {
+  adjacency <- as.matrix(adjacency)
+  if (is.null(rownames(adjacency)) || is.null(colnames(adjacency))) {
+    stop("Adjacency matrices must have ASV identifiers as row and column names.")
   }
+  if (!setequal(rownames(adjacency), colnames(adjacency))) {
+    stop("Row and column identifiers do not match in an adjacency matrix.")
+  }
+  ids <- sort(rownames(adjacency))
+  adjacency <- adjacency[ids, ids, drop = FALSE]
+  edge_indices <- which(upper.tri(adjacency) & adjacency != 0, arr.ind = TRUE)
+  if (nrow(edge_indices) == 0) return(character(0))
+  paste(ids[edge_indices[, 1]], ids[edge_indices[, 2]], sep = "__")
+}
 
-  adj <- as.matrix(getRefit(se))
-  taxa <- taxa_names(ps_obj)
-  rownames(adj) <- taxa
-  colnames(adj) <- taxa
+# Compare a reconstructed network against its corresponding full-data network.
+compare_network_edges <- function(original_adjacency, reconstructed_adjacency) {
+  original_edges <- get_edge_set(original_adjacency)
+  reconstructed_edges <- get_edge_set(reconstructed_adjacency)
+  shared_edges <- intersect(original_edges, reconstructed_edges)
+  union_edges <- union(original_edges, reconstructed_edges)
 
-  g <- graph_from_adjacency_matrix(
-    adj,
-    mode = "undirected",
-    diag = FALSE
-  )
+  n_original <- length(original_edges)
+  n_reconstructed <- length(reconstructed_edges)
+  n_shared <- length(shared_edges)
 
-  topology <- tibble(
-    FeatureID = V(g)$name,
-    Degree = degree(g),
-    BetweennessCentrality = betweenness(g, normalized = TRUE)
-  )
-
-  list(
-    stage = stage,
-    samples = keep,
-    phyloseq = ps_obj,
-    spiec = se,
-    adjacency = adj,
-    graph = g,
-    topology = topology,
-    metrics = data.frame(
-      Nodes = vcount(g),
-      Edges = ecount(g),
-      Connected_components = components(g)$no,
-      Average_neighbors = mean(degree(g)),
-      Network_density = edge_density(g),
-      Clustering_coefficient = transitivity(g, type = "average"),
-      Characteristic_path_length = suppressWarnings(
-        mean_distance(g, directed = FALSE, unconnected = TRUE)
-      )
-    )
+  data.frame(
+    Original_nodes = nrow(original_adjacency),
+    Reconstructed_nodes = nrow(reconstructed_adjacency),
+    Original_edges = n_original,
+    Reconstructed_edges = n_reconstructed,
+    Shared_edges = n_shared,
+    New_edges = length(setdiff(reconstructed_edges, original_edges)),
+    Jaccard = if (length(union_edges) > 0) n_shared / length(union_edges) else NA_real_,
+    Retention = if (n_original > 0) n_shared / n_original else NA_real_,
+    Precision = if (n_reconstructed > 0) n_shared / n_reconstructed else NA_real_
   )
 }
 
+# ---- 11.1 Tadpole leave-one-out analysis -------------------------------------
+if (nsamples(ps_far) != 5) {
+  stop("The tadpole sensitivity analysis expects exactly five samples in ps_far; found ",
+       nsamples(ps_far), ".")
+}
+
+tadpole_subsets <- combn(sample_names(ps_far), 4, simplify = FALSE)
+
+infer_tadpole_network <- function(samples, phyloseq_object) {
+  ps_subset <- prune_samples(samples, phyloseq_object)
+  ps_subset <- filter_taxa(
+    ps_subset,
+    function(x) sum(x > 0) >= 2,
+    TRUE
+  )
+  se_subset <- spiec.easi(
+    ps_subset,
+    method = "mb",
+    lambda.min.ratio = 1e-2,
+    nlambda = 20,
+    pulsar.params = list(thresh = 0.05)
+  )
+  adjacency <- as.matrix(getRefit(se_subset))
+  dimnames(adjacency) <- list(taxa_names(ps_subset), taxa_names(ps_subset))
+  adjacency
+}
+
+# Use a fixed seed so the subset reconstructions are reproducible.
 set.seed(123)
+tadpole_adjacencies <- lapply(
+  tadpole_subsets,
+  infer_tadpole_network,
+  phyloseq_object = ps_far
+)
+names(tadpole_adjacencies) <- paste0("LOO_", seq_along(tadpole_adjacencies))
 
-sensitivity_n4 <- vector("list", 5)
+original_tadpole_adjacency <- as.matrix(igraph::as_adjacency_matrix(
+  g_far, sparse = FALSE
+))
+if (is.null(rownames(original_tadpole_adjacency))) {
+  stop("The original tadpole network g_far must retain ASV identifiers as vertex names.")
+}
 
-for (i in seq_len(5)) {
-  message("Sensitivity iteration ", i, "/5")
+excluded_tadpoles <- vapply(
+  tadpole_subsets,
+  function(samples) paste(setdiff(sample_names(ps_far), samples), collapse = ";"),
+  character(1)
+)
 
-  sensitivity_n4[[i]] <- list(
-    iteration = i,
-    tadpole = infer_network_n4(ps_far, "tadpole", seed = 100 + i),
-    juvenile = infer_network_n4(ps_JUV, "juvenile", seed = 200 + i),
-    adult = infer_network_n4(ps_ADU, "adult", seed = 300 + i)
+tadpole_edge_sensitivity <- dplyr::bind_rows(lapply(
+  seq_along(tadpole_adjacencies),
+  function(i) cbind(
+    data.frame(
+      Group = "Tadpoles",
+      Replicate = names(tadpole_adjacencies)[i],
+      Excluded_sample = excluded_tadpoles[i],
+      stringsAsFactors = FALSE
+    ),
+    compare_network_edges(original_tadpole_adjacency, tadpole_adjacencies[[i]])
+  )
+))
+
+# ---- 11.2 Juvenile edge comparisons ------------------------------------------
+# These are the five previously generated n = 4 networks used in the validated
+# juvenile sensitivity analysis. Keeping them as input files preserves the exact
+# alternative subsets and network realizations used for that analysis.
+JUV_REPLICATE_DIR <- "sensitivity_JUV_n4"
+juvenile_adjacency_files <- file.path(
+  JUV_REPLICATE_DIR,
+  paste0("JUV_n4_replicate_", seq_len(5), "_adjacency.rds")
+)
+missing_juvenile_files <- juvenile_adjacency_files[!file.exists(juvenile_adjacency_files)]
+if (length(missing_juvenile_files) > 0) {
+  stop(
+    "Missing juvenile sensitivity adjacency files:\n",
+    paste(missing_juvenile_files, collapse = "\n"),
+    "\nPlace the five validated RDS files in '", JUV_REPLICATE_DIR, "'."
   )
 }
 
-sensitivity_metrics_n4 <- purrr::map_dfr(
-  sensitivity_n4,
-  function(x) {
-    bind_rows(
-      Tadpoles = x$tadpole$metrics,
-      Juveniles = x$juvenile$metrics,
-      Adults = x$adult$metrics,
-      .id = "Stage"
-    ) %>%
-      mutate(Iteration = x$iteration, .before = 1)
-  }
+juvenile_adjacencies <- lapply(juvenile_adjacency_files, readRDS)
+original_juvenile_adjacency <- as.matrix(adj_JUV)
+if (is.null(rownames(original_juvenile_adjacency)) ||
+    is.null(colnames(original_juvenile_adjacency))) {
+  stop("adj_JUV must have ASV identifiers as row and column names.")
+}
+
+juvenile_edge_sensitivity <- dplyr::bind_rows(lapply(
+  seq_along(juvenile_adjacencies),
+  function(i) cbind(
+    data.frame(
+      Group = "Juveniles",
+      Replicate = paste0("Replicate_", i),
+      Excluded_sample = NA_character_,
+      stringsAsFactors = FALSE
+    ),
+    compare_network_edges(original_juvenile_adjacency, juvenile_adjacencies[[i]])
+  )
+))
+
+# ---- 11.3 Combined results and exports ---------------------------------------
+network_edge_sensitivity <- dplyr::bind_rows(
+  tadpole_edge_sensitivity,
+  juvenile_edge_sensitivity
 )
 
-sensitivity_samples_n4 <- purrr::map_dfr(
-  sensitivity_n4,
-  function(x) {
-    bind_rows(
-      Tadpoles = tibble(Sample = x$tadpole$samples),
-      Juveniles = tibble(Sample = x$juvenile$samples),
-      Adults = tibble(Sample = x$adult$samples),
-      .id = "Stage"
-    ) %>%
-      mutate(Iteration = x$iteration, .before = 1)
-  }
+# Edgeless reconstructions remain in the replicate-level tables but are excluded
+# from ranges because Jaccard/precision are undefined when both edge sets are empty.
+network_edge_sensitivity_summary <- network_edge_sensitivity %>%
+  group_by(Group) %>%
+  summarise(
+    Original_nodes = first(Original_nodes),
+    Original_edges = first(Original_edges),
+    Reconstructions = n(),
+    Reconstructions_with_edges = sum(Reconstructed_edges > 0),
+    Jaccard_min = if (any(Reconstructed_edges > 0)) min(Jaccard[Reconstructed_edges > 0], na.rm = TRUE) else NA_real_,
+    Jaccard_max = if (any(Reconstructed_edges > 0)) max(Jaccard[Reconstructed_edges > 0], na.rm = TRUE) else NA_real_,
+    Retention_min = if (any(Reconstructed_edges > 0)) min(Retention[Reconstructed_edges > 0], na.rm = TRUE) else NA_real_,
+    Retention_max = if (any(Reconstructed_edges > 0)) max(Retention[Reconstructed_edges > 0], na.rm = TRUE) else NA_real_,
+    Precision_min = if (any(Reconstructed_edges > 0)) min(Precision[Reconstructed_edges > 0], na.rm = TRUE) else NA_real_,
+    Precision_max = if (any(Reconstructed_edges > 0)) max(Precision[Reconstructed_edges > 0], na.rm = TRUE) else NA_real_,
+    .groups = "drop"
+  )
+
+write.csv(
+  tadpole_edge_sensitivity,
+  file.path(RESULTS_DIR, "tadpole_edge_sensitivity.csv"),
+  row.names = FALSE
+)
+write.csv(
+  juvenile_edge_sensitivity,
+  file.path(RESULTS_DIR, "juvenile_edge_sensitivity.csv"),
+  row.names = FALSE
+)
+write.csv(
+  network_edge_sensitivity,
+  file.path(RESULTS_DIR, "network_edge_sensitivity_all_groups.csv"),
+  row.names = FALSE
+)
+write.csv(
+  network_edge_sensitivity_summary,
+  file.path(RESULTS_DIR, "network_edge_sensitivity_summary.csv"),
+  row.names = FALSE
 )
 
-write.table(
-  sensitivity_metrics_n4,
-  file.path(RESULTS_DIR, "sensitivity_metrics_n4.tsv"),
-  sep = "\t", row.names = FALSE, quote = FALSE
-)
-
-write.table(
-  sensitivity_samples_n4,
-  file.path(RESULTS_DIR, "sensitivity_samples_n4.tsv"),
-  sep = "\t", row.names = FALSE, quote = FALSE
-)
-
-# NOTE: Table 1 network metrics and GLay module assignments were obtained in Cytoscape.
-# The corresponding exported node/module tables are treated as analysis inputs.
+print(tadpole_edge_sensitivity)
+print(juvenile_edge_sensitivity)
+print(network_edge_sensitivity_summary)
 
 # ---- 12. Save analysis workspace ---------------------------------------------
 # The figures script loads this file so that statistical calculations are not
